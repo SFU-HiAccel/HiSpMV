@@ -6,7 +6,7 @@ do
     filename="${filename%.*}"
 
   # Generate a unique log file name based on the current directory
-    log_file="{filename}.log"
+    log_file="${filename}.log"
     # echo "./main $file |& tee $log_file"
     ./spmv --bitstream=SpMV_$platform.xclbin $file 10000 |& tee $log_file
 done

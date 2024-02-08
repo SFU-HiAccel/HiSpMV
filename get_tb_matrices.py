@@ -3,16 +3,17 @@ import requests
 import tarfile
 from urllib.parse import urlparse
 
-def download_matrix_market_files(urls, directory):
+def download_and_extract_matrix_market_files(urls, directory):
     # Create the directory if it doesn't exist
     if not os.path.exists(directory):
         os.makedirs(directory)
 
-    # Download each file
+    # Download and extract each file
     for url in urls:
         # Parse the URL to get the filename
         parsed_url = urlparse(url)
         filename = os.path.basename(parsed_url.path)
+        matrix_name = os.path.join(directory, filename.split(".")[0])  # Extract matrix name from filename
         filepath = os.path.join(directory, filename)
 
         # Check if the file already exists
@@ -36,6 +37,21 @@ def download_matrix_market_files(urls, directory):
         with tarfile.open(filepath, "r:gz") as tar:
             tar.extractall(directory)
         print(f"Extracted '{filename}' successfully.")
+
+        # Remove additional files
+        extracted_directory = os.path.join(directory, matrix_name)
+        mtx_files = [file for file in os.listdir(extracted_directory) if file.endswith(".mtx")]
+        
+        for file in mtx_files:
+            # print(file, f"{matrix_name}.mtx")
+            mat_dir = matrix_name.split("/")[-1]
+            if file != f"{mat_dir}.mtx":
+                os.remove(os.path.join(extracted_directory, file))
+                print(f"Removed additional file '{file}' from '{matrix_name}' directory.")
+            else:
+                print(f"Found '{file}' in '{matrix_name}' directory. Keeping it.")
+            
+            
 
 # List of URLs for the matrices you want to download
 urls = [
@@ -63,4 +79,4 @@ urls = [
 
 directory = os.path.join(os.getcwd(), "matrices")  # Directory to save the downloaded files
 
-download_matrix_market_files(urls, directory)
+download_and_extract_matrix_market_files(urls, directory)
