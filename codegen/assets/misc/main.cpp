@@ -44,7 +44,7 @@ std::vector<std::vector<std::vector<int>>> balanceWorkload(std::vector<std::vect
             std::vector<std::vector<int>>peWorkloads(NUM_PES, std::vector<int>(2, 0));
 
             #ifdef DEBUGGING
-                // std::cout << "i= "<< i << "\tj= " << j << std::endl;
+                std::cout << "i= "<< i << "\tj= " << j << std::endl;
             #endif
 
             for(int ii = 0; ii < Depth; ii++) {
@@ -346,7 +346,7 @@ int prepareAmtx(std::vector<std::vector<CSRMatrix>> tiledMatrices, const int num
     const int Depth, const int Window, const int rows, const int cols, const int nnz, const int USE_ROW_SHARE, const int USE_TREE_ADDER) 
 {    
     //compute how balanced the matrix is
-    float imb0, imb1;
+        float imb0, imb1;
     int run_len3 = 0;
     std::vector<std::vector<int>> tileSizes3(numTilesRows, std::vector<int>(numTilesCols, 0)); 
     std::vector<std::vector<int>> numSharedRows(numTilesRows, std::vector<int>(numTilesCols, 0));
@@ -357,41 +357,42 @@ int prepareAmtx(std::vector<std::vector<CSRMatrix>> tiledMatrices, const int num
    
     int run_len1 = 0;
     std::vector<std::vector<int>> tileSizes1 = computePEloads1(tiledMatrices, numTilesRows, numTilesCols, run_len1);
-    // printf("Run Length without Row Sharing, and without Tree Adders: %d\n", run_len1);
+    printf("Run Length without Row Sharing, and without Tree Adders: %d\n", run_len1);
+    printf("Improvement = %d (%f, %f)\n", improvement, imb0, imb1);
 
-    if (improvement < 25) {
-        // std::cout << "Input Matrix is Balanced, continuing without row sharing and tree adders " << std::endl;
+    if (improvement < 10) {
+        std::cout << "Input Matrix is Balanced, continuing without row sharing and tree adders " << std::endl;
+        // USE_DOUBLE_BUFFER = false;
         return prepareAmtx1(tiledMatrices, numTilesRows, numTilesCols, tileSizes1);
-
     }
 
     else if (!USE_ROW_SHARE) {
-        // std::cout << "Row sharing disabled by user, continuing without row sharing and tree adders " << std::endl;
+        std::cout << "Row sharing disabled by user, continuing without row sharing and tree adders " << std::endl;
         return prepareAmtx1(tiledMatrices, numTilesRows, numTilesCols, tileSizes1);
     }
     
     //If there is more than 25% improvement with row sharing, continue with row sharing
-    // std::cout << "Input Matrix is Imbalanced, continuing with row sharing " << std::endl;
+    std::cout << "Input Matrix is Imbalanced, continuing with row sharing " << std::endl;
 
     int run_len2 = 0;
     std::vector<std::vector<int>> tileSizes2 = computePEloads2(tiledMatrices, numTilesRows, numTilesCols, numSharedRows, sharedRows, run_len2);
-    // printf("Run Length with Row Sharing, and without Tree Adders: %d\n", run_len2);
+    printf("Run Length with Row Sharing, and without Tree Adders: %d\n", run_len2);
 
     #ifndef BUILD_TREE_ADDER
         //if hardware doesnt have tree adder 
-        // std::cout << "Hardware doesn't have Tree Adder, continuing without Tree Adders" << std::endl;
+        std::cout << "Hardware doesn't have Tree Adder, continuing without Tree Adders" << std::endl;
         return prepareAmtx2(tiledMatrices, numTilesRows, numTilesCols, numSharedRows, sharedRows, tileSizes2);
     #endif
 
     #ifdef BUILD_TREE_ADDER
         //if user disabled tree adders
         if (!USE_TREE_ADDER) {
-            // std::cout << "Tree Adder disabled by user, continuing without Tree Adders" << std::endl;
+            std::cout << "Tree Adder disabled by user, continuing without Tree Adders" << std::endl;
             return prepareAmtx2(tiledMatrices, numTilesRows, numTilesCols, numSharedRows, sharedRows, tileSizes2);
         }
 
         //using both
-        // printf("Run Length with Row Sharing, and with Tree Adders: %d\n", run_len3);
+        printf("Run Length with Row Sharing, and with Tree Adders: %d\n", run_len3);
         return prepareAmtx3(tiledMatrices, numTilesRows, numTilesCols, numSharedRows, sharedRows, tileSizes3);
     #endif
 }
@@ -690,6 +691,7 @@ int main(int argc, char* argv[]) {
   
 
   // std::vector<aligned_std::vector<uint64_t>> DEBUGmtx(NUM_CH, aligned_std::vector<uint64_t>(PES_PER_CH*run_len));
+
   int loadX = numCols16 * numTilesRows;
   printf("loadX:%d\n", loadX);
 #ifdef HYBRID_DESIGN

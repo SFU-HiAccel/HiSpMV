@@ -38,7 +38,7 @@ std::vector<std::vector<CSRMatrix>> tileCSRMatrix(const CSRMatrix& originalMatri
     int numTilesRows, int numTilesCols);
 
 std::vector<aligned_vector<uint64_t>> prepareAmtx(std::vector<std::vector<CSRMatrix>> tiledMatrices, const int numTilesRows, const int numTilesCols, 
-    const int Depth, const int Window, const int rows, const int cols, const int nnz, const int USE_ROW_SHARE, const int USE_TREE_ADDER);
+    const int Depth, const int Window, const int rows, const int cols, const int nnz, const int USE_ROW_SHARE, const int USE_TREE_ADDER, bool &USE_DOUBLE_BUFFER);
 
 
 inline uint64_t encode(bool tileEnd, bool rowEnd, bool sharedRow, uint16_t row, int col, uint32_t val)

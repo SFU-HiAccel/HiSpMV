@@ -19,6 +19,7 @@ class SpMVCodeGen:
 
     def generateAll(self):
         self.copyHostCode()
+        self.copyMakefile()
         self.writeKernelHeader()
         self.writeKernelCode()
         self.writeLinkConfig()
@@ -63,6 +64,15 @@ class SpMVCodeGen:
             cp_src_file = os.path.join(host_dir, file)
             cp_dst_file = os.path.join(src_dir, file)
             shutil.copy(cp_src_file, cp_dst_file)
+
+    def copyMakefile(self):
+        misc_dir = os.path.join(self.asset_dir, "misc")
+
+        # for file in host_files:
+        cp_src_file = os.path.join(misc_dir, "Makefile")
+        cp_dst_file = os.path.join(self.temp_dir, "Makefile")
+        # print(cp_dst_file)
+        shutil.copy(cp_src_file, cp_dst_file)
 
     def writeKernelHeader(self):
         src_dir = os.path.join(self.temp_dir, "src")

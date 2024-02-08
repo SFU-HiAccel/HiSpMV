@@ -656,7 +656,7 @@ std::vector<aligned_vector<uint64_t>> prepareAmtx3(std::vector<std::vector<CSRMa
 }
 
 std::vector<aligned_vector<uint64_t>> prepareAmtx(std::vector<std::vector<CSRMatrix>> tiledMatrices, const int numTilesRows, const int numTilesCols, 
-    const int Depth, const int Window, const int rows, const int cols, const int nnz, const int USE_ROW_SHARE, const int USE_TREE_ADDER) 
+    const int Depth, const int Window, const int rows, const int cols, const int nnz, const int USE_ROW_SHARE, const int USE_TREE_ADDER, bool &USE_DOUBLE_BUFFER) 
 {    
     //compute how balanced the matrix is
     float imb0, imb1;
@@ -671,9 +671,11 @@ std::vector<aligned_vector<uint64_t>> prepareAmtx(std::vector<std::vector<CSRMat
     int run_len1 = 0;
     std::vector<std::vector<int>> tileSizes1 = computePEloads1(tiledMatrices, numTilesRows, numTilesCols, run_len1);
     printf("Run Length without Row Sharing, and without Tree Adders: %d\n", run_len1);
+    printf("Improvement = %d (%f, %f)\n", improvement, imb0, imb1);
 
-    if (improvement < 25) {
+    if (improvement < 10) {
         std::cout << "Input Matrix is Balanced, continuing without row sharing and tree adders " << std::endl;
+        USE_DOUBLE_BUFFER = false;
         return prepareAmtx1(tiledMatrices, numTilesRows, numTilesCols, tileSizes1);
     }
 

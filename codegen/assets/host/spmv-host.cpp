@@ -1,5 +1,8 @@
 #include "helper_functions.h"
 #include "spmv.h"
+#include <thread>
+#include <atomic>
+#include <regex>
 
 using namespace std;
 
@@ -7,6 +10,88 @@ using namespace std;
 #define USE_ROW_SHARE 1
 
 DEFINE_string(bitstream, "", "path to bitstream file, run csim if empty");
+
+const char* GetFilename(const char* filePath) {
+    const char* lastSlash = strrchr(filePath, '/');
+    const char* lastBackslash = strrchr(filePath, '\\');
+
+    const char* lastSeparator = std::max(lastSlash, lastBackslash);
+    
+    if (lastSeparator) {
+        // Move the pointer to the character right after the separator
+        lastSeparator++;
+        
+        // Find the last "." after the separator
+        const char* lastDot = strrchr(lastSeparator, '.');
+        if (lastDot && lastDot > lastSeparator) {
+            // Calculate the length of the substring
+            size_t length = lastDot - lastSeparator;
+            
+            // Allocate memory for the substring and copy it
+            char* baseFilename = new char[length + 1];
+            strncpy(baseFilename, lastSeparator, length);
+            baseFilename[length] = '\0';
+            
+            char* newFileName = new char[256];
+            sprintf(newFileName, "./power_logs/%s.log", baseFilename);
+            std::cout << newFileName << std::endl;
+            return newFileName;
+        }
+    }
+    
+    // No separator found, return the whole path
+    return filePath;
+}
+
+std::string exec(const char* cmd) {
+    char buffer[2048];
+    std::string result = "";
+    FILE* pipe = popen(cmd, "r");
+    if (!pipe) {
+        return "ERROR";
+    }
+    while (!feof(pipe)) {
+        if (fgets(buffer, 128, pipe) != nullptr) {
+            result += buffer;
+        }
+    }
+    pclose(pipe);
+    // printf("ran cmd\n");
+    return result;
+}
+
+std::atomic<bool> keepCollecting(true);
+
+void dataCollectionThread(const char* outputFilePath) {
+    const char* command = "xbutil query -d 0000:d8:00.1";
+
+    std::ofstream outputFile(outputFilePath);
+    if (!outputFile.is_open()) {
+        std::cerr << "Error opening output file." << std::endl;
+        return;
+    }
+
+    std::regex cardPowerRegex("Card Power\\(W\\)\\s+(\\d+)");
+
+    while (keepCollecting) {
+        for (int i = 0; i < 3; ++i) {
+            std::string output = exec(command);
+            
+            std::smatch match;
+            if (std::regex_search(output, match, cardPowerRegex)) {
+                std::string cardPower = match[1];
+                outputFile << cardPower << std::endl;
+            }
+        }
+    }
+
+    outputFile.close();
+}
+
+
+void stopDataCollection() {
+    keepCollecting = false;
+}
 
 
 void cpu_spmv(const CSRMatrix& A, const vector<float> B, vector<float>& Cin, const float alpha, const float beta, vector<float>& Cout) {  // Initialize result vector C with zeros
@@ -92,6 +177,8 @@ int main(int argc, char* argv[]) {
   int numTilesCols = (cols - 1)/Window + 1;
   int numTilesRows = (rows - 1)/Depth + 1;
 
+  bool USE_DOUBLE_BUFFER = true;
+
   cout << "Rows: " << rows << "\t Cols: " << cols << "\t NNZ: " << nnz << endl;
   cout << "Window: " << Window << "\t Depth: " << Depth << endl;
   cout << "Numtiles: " << numTilesRows << ", " << numTilesCols << endl << endl; 
@@ -100,7 +187,7 @@ int main(int argc, char* argv[]) {
   auto start_gen = std::chrono::steady_clock::now();
   vector<vector<CSRMatrix>> tiledMatrices = tileCSRMatrix(cpuAmtx, rows, cols, Depth, Window, numTilesRows, numTilesCols);
 
-  vector<aligned_vector<uint64_t>> fpgaAmtx = prepareAmtx(tiledMatrices, numTilesRows, numTilesCols, Depth, Window, rows, cols,  nnz, USE_ROW_SHARE, USE_TREE_ADDER);
+  vector<aligned_vector<uint64_t>> fpgaAmtx = prepareAmtx(tiledMatrices, numTilesRows, numTilesCols, Depth, Window, rows, cols,  nnz, USE_ROW_SHARE, USE_TREE_ADDER, USE_DOUBLE_BUFFER);
 
   auto end_gen = std::chrono::steady_clock::now();
   double time_gen = std::chrono::duration_cast<std::chrono::nanoseconds>(end_gen - start_gen).count();
@@ -157,14 +244,19 @@ int main(int argc, char* argv[]) {
   uint32_t run_len = fpgaAmtx[0].size()/ PES_PER_CH;
   // vector<aligned_vector<uint64_t>> DEBUGmtx(NUM_CH, aligned_vector<uint64_t>(PES_PER_CH*run_len));
 
+  // double density = (double)nnz / ((double)rows * (double)cols);
+  
+
   cout << "Run Length:" << run_len << endl;
 
-  bool USE_DOUBLE_BUFFER = false;
 #ifdef HYBRID_DESIGN
   USE_DOUBLE_BUFFER = (run_len <= (numCols16 * numTilesRows));
+  // USE_DOUBLE_BUFFER = false;
 #endif
   printf("Double Buffering:%d\n", USE_DOUBLE_BUFFER);
 
+  // const char* outputFilePath = GetFilename(filename);
+  // std::thread collectionThread(dataCollectionThread, outputFilePath);
   double time_taken = tapa::invoke(
     SpMV, FLAGS_bitstream, 
     tapa::read_only_mmaps<uint64_t, NUM_CH>(fpgaAmtx).reinterpret<uint64_v>(),
@@ -176,7 +268,8 @@ int main(int argc, char* argv[]) {
     (uint16_t)numTilesRows, (uint16_t)numTilesCols,
     (uint32_t)(numTiles*rp_time), (uint32_t)run_len, (uint16_t)rp_time, USE_DOUBLE_BUFFER);
   // clog << "kernel time: " << kernel_time_ns * 1e-9 << " s" << endl;
-
+  // stopDataCollection();
+  // collectionThread.join();
   time_taken *= (1e-9); // total time in second
   time_taken /= rp_time;
     printf("Kernel time:%f\n", time_taken*1000);
@@ -185,7 +278,7 @@ int main(int argc, char* argv[]) {
     / 1e+9
     / time_taken
     ;
-  printf("GFLOPS:%f\n", gflops);
+  printf("GFLOPS:%f \n", gflops);
 
 
 
