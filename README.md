@@ -8,7 +8,7 @@ The following needs to be installed
 3. [Xilinx Runtime](https://github.com/Xilinx/XRT)
 4.  Alveo U280 HBM FPGA
    
-## Setup Environment:
+## Set Environment:
 Source Vitis and Xilinx Runtime, replace VITIS_PATH and XRT_PATH with the actual path to your Vitis and Xilinx Runtime installation
 ```
 source VITIS_PATH/2021.2/settings64.sh
