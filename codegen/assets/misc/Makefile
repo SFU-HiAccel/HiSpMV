@@ -26,7 +26,7 @@ tapa:
   --clock-period 4.25
 
 hw:
-	sh spmv.$(platform).hw_generate_bitsream.sh
+	sh spmv.$(platform).hw_generate_bitstream.sh
 
 clean:
 	rm -rf spmv
