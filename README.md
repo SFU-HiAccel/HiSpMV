@@ -46,7 +46,28 @@ make spmv
 bash run_this.sh
 ```
 
-### Use code generator to build your own hardware
+### Use the code generator to build your hardware
+This script generates TAPA code for HiSpMV design.
+
+```
+python3 codegen/scripts/main.py <home_directory> <build_directory> [--num-ch-A <value>] [--num-ch-y <value>] [--config <path_to_config_file>] [--no-tree-adder] [--hybrid-buffer] [--matrices <path_to_matrices_directory>]
+```
+
+
+### Arguments
+
+- `home_directory`: Path to the home directory, which is the CodeGen Folder.
+- `build_directory`: The path to the build directory, can be any location, new or existing. **WARNING:** Anything inside this directory will be erased.
+- `--num-ch-A <value>`: Number of HBM channels to read sparse matrix A (optional).
+- `--num-ch-y <value>`: Number of HBM channels to read dense vector y (optional).
+- `--config <path_to_config_file>`: The path to the configuration file containing available resources on the hardware, must specify bram, uram, dsp, lut, ff, and hbm (optional).
+- `--no-tree-adder`: Build hardware without reduction tree adder (optional).
+- `--hybrid-buffer`: Build hardware with hybrid capability (optional).
+- `--matrices <path_to_matrices_directory>`: Directory containing matrices in .mtx format (optional).
+
+
+## Note
+Ensure to provide all required arguments and use appropriate flags according to your hardware configuration and preferences.
 
 
 ## Publications
